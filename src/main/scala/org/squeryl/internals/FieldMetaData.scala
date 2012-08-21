@@ -26,7 +26,6 @@ import collection.mutable.{HashMap, HashSet, ArrayBuffer}
 import org.squeryl.{IndirectKeyedEntity, Session, KeyedEntity}
 import org.squeryl.dsl.CompositeKey
 import org.squeryl.customtypes.CustomType
-import scala.reflect.generic.ByteCodecs
 import scala.tools.scalap.scalax.rules.scalasig.{ScalaSigAttributeParsers, ByteCode, ScalaSigPrinter}
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
@@ -418,13 +417,20 @@ object FieldMetaData {
        * Look for a value in the sample type.  If one exists and
        * it is not None, we can use it to deduce the Option type.   
        */
-      var v =
+      var v: AnyRef =
          if(sampleInstance4OptionTypeDeduction != null) {
-           if(field != None)
-             field.get.get(sampleInstance4OptionTypeDeduction)
-           else if(getter != None)
-             getter.get.invoke(sampleInstance4OptionTypeDeduction, _EMPTY_ARRAY :_*)
-           else
+           field flatMap { f =>
+             f.get(sampleInstance4OptionTypeDeduction) match {
+               case a: AnyRef => Some(a)
+               case _ => None
+             }
+           } orElse {
+	             getter flatMap { _.invoke(sampleInstance4OptionTypeDeduction, _EMPTY_ARRAY : _*) match {
+	               case a: AnyRef => Some(a)
+	               case _ => None
+	             }
+             }
+           } getOrElse
             createDefaultValue(member, clsOfField, Some(typeOfField), colAnnotation)
          }
          else null
